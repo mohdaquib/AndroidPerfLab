@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  debuggable must be false for accurate Macrobenchmark results.
+  tools:replace merges this value over the default true that AGP injects for test APKs.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:debuggable="false"
+        tools:replace="android:debuggable" />
+
+</manifest>
