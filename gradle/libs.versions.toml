@@ -1,25 +1,26 @@
 [versions]
 agp             = "9.1.1"
-kotlin          = "2.2.10"
+kotlin          = "2.1.21"
 
 # AndroidX
-coreKtx            = "1.18.0"
-lifecycleRuntimeKtx = "2.10.0"
-activityCompose    = "1.13.0"
+coreKtx            = "1.15.0"
+lifecycleRuntimeKtx = "2.8.7"
+activityCompose    = "1.9.3"
 
 # Compose BOM (all Compose artifacts versioned through the BOM)
-composeBom = "2024.09.00"
+composeBom = "2024.10.01"
 
 # Macrobenchmark + Baseline Profiles
 # androidx.baselineprofile plugin ships inside benchmark-gradle-plugin at the same version
-benchmarkMacro   = "1.4.0"
+# Upgraded to 1.5.0-alpha05 for AGP 9 compatibility
+benchmarkMacro   = "1.5.0-alpha05"
 profileinstaller = "1.4.1"
 uiautomator      = "2.3.0"
 
 # Test
 junit        = "4.13.2"
-junitVersion = "1.3.0"
-espressoCore = "3.7.0"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
 
 # ────────────────────────────────────────────────────────────────
 [libraries]
