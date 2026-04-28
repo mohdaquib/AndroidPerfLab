@@ -14,7 +14,8 @@ android {
         testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
 
         // Pass the package of the app under test so Macrobenchmark can launch it.
-        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR"
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] =
+            "EMULATOR,DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
     }
 
     buildTypes {
