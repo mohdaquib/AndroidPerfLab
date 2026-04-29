@@ -1,5 +1,6 @@
 package com.aquib.androidperflab.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,18 +44,21 @@ private fun generateFeedItems(count: Int = 220): List<FeedItem> = List(count) { 
 }
 
 @Composable
-fun FeedScreen(modifier: Modifier = Modifier) {
+fun FeedScreen(
+    modifier: Modifier = Modifier,
+    onItemClick: (FeedItem) -> Unit = {},
+) {
     val items = remember { generateFeedItems() }
     LazyColumn(modifier = modifier.fillMaxSize()) {
         items(items = items, key = { it.id }) { item ->
-            FeedItemRow(item = item)
+            FeedItemRow(item = item, onClick = { onItemClick(item) })
             HorizontalDivider()
         }
     }
 }
 
 @Composable
-private fun FeedItemRow(item: FeedItem) {
+private fun FeedItemRow(item: FeedItem, onClick: () -> Unit = {}) {
     // Intentionally unoptimized: a new SimpleDateFormat is allocated and a new Date is
     // constructed on every recomposition instead of being computed once with remember {}.
     val timestamp = SimpleDateFormat("EEE, dd MMM yyyy  HH:mm:ss", Locale.getDefault())
@@ -63,6 +67,7 @@ private fun FeedItemRow(item: FeedItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
