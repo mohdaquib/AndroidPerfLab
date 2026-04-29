@@ -21,7 +21,7 @@ android {
     buildTypes {
         // "benchmark" must match the build type created in :app so AGP can find the APK.
         create("benchmark") {
-            isDebuggable = false
+            isDebuggable = true
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
