@@ -17,6 +17,9 @@ benchmarkMacro   = "1.5.0-alpha05"
 profileinstaller = "1.4.1"
 uiautomator      = "2.3.0"
 
+# Coil
+coil = "3.0.4"
+
 # Test
 junit        = "4.13.2"
 junitVersion = "1.2.1"
@@ -49,6 +52,10 @@ androidx-test-uiautomator       = { group = "androidx.test.uiautomator", name = 
 
 # Baseline Profiles — consumer side (installed into the APK)
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
+
+# Coil
+coil-compose        = { group = "io.coil-kt.coil3", name = "coil-compose",        version.ref = "coil" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 
 # Test
 junit                = { group = "junit",                  name = "junit",          version.ref = "junit" }
