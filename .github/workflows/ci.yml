@@ -76,7 +76,8 @@ jobs:
         if: always()
         run: |
           echo "### Macrobenchmark Results" >> $GITHUB_STEP_SUMMARY
-          python3 benchmarks/BenchmarkResultsParser.py >> $GITHUB_STEP_SUMMARY
+          python3 benchmarks/BenchmarkResultsParser.py | tee -a $GITHUB_STEP_SUMMARY
+          exit ${PIPESTATUS[0]}
 
       - name: Upload benchmark JSON
         if: always()

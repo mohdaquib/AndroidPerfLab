@@ -3,6 +3,11 @@ package com.aquib.androidperflab
 import android.app.Application
 import android.util.Log
 import androidx.startup.AppInitializer
+import com.aquib.androidperflab.sdk.FakeAnalyticsSdk
+import com.aquib.androidperflab.sdk.FakeCrashReportingSdk
+import com.aquib.androidperflab.sdk.FakeFeatureFlagsSdk
+import com.aquib.androidperflab.sdk.FakePerformanceMonitorSdk
+import com.aquib.androidperflab.sdk.FakeRemoteConfigSdk
 import com.aquib.androidperflab.startup.AnalyticsInitializer
 import com.aquib.androidperflab.startup.FeatureFlagsInitializer
 import com.aquib.androidperflab.startup.PerfMonitorInitializer
@@ -24,6 +29,21 @@ class AndroidPerfLabApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         val t0 = System.currentTimeMillis()
+
+        // Benchmark slow-startup mode: simulate the "before" state by running all SDKs
+        // synchronously on the main thread (~750 ms). Activated only in non-release builds
+        // when the flag file is written by AppStartupBenchmark.startupCold_sdkAsyncInit_baseline().
+        if (isBenchmarkSlowStartupEnabled()) {
+            FakeCrashReportingSdk.registerHandler(this)
+            FakeCrashReportingSdk.uploadPendingReports(this)
+            FakeAnalyticsSdk.init(this)
+            FakePerformanceMonitorSdk.init(this)
+            FakeFeatureFlagsSdk.init(this)
+            FakeRemoteConfigSdk.init(this)
+            Log.d(TAG, "Application.onCreate() returned after SLOW sync init " +
+                    "in ${System.currentTimeMillis() - t0} ms (benchmark baseline mode)")
+            return
+        }
 
         // CrashReportingInitializer ran synchronously via InitializationProvider BEFORE
         // this method. The exception handler is already registered; its upload coroutine
@@ -54,6 +74,13 @@ class AndroidPerfLabApplication : Application() {
 
         Log.d(TAG, "Application.onCreate() returned in ${System.currentTimeMillis() - t0} ms " +
                 "— all SDKs initializing in background")
+    }
+
+    // Active only in non-release builds. The flag file is written by the benchmark test's
+    // setupBlock and removed in its tearDown, so production APKs never enter the slow path.
+    private fun isBenchmarkSlowStartupEnabled(): Boolean {
+        if (BuildConfig.BUILD_TYPE == "release") return false
+        return java.io.File("/data/local/tmp/perflab_slow_startup").exists()
     }
 
     companion object {
