@@ -65,6 +65,12 @@ jobs:
           arch: x86_64
           script: ./gradlew :benchmarks:connectedBenchmarkAndroidTest
 
+      - name: Parse Benchmark Results
+        if: always()
+        run: |
+          echo "### Macrobenchmark Results" >> $GITHUB_STEP_SUMMARY
+          python3 benchmarks/BenchmarkResultsParser.py >> $GITHUB_STEP_SUMMARY
+
       - name: Upload benchmark JSON
         if: always()
         uses: actions/upload-artifact@v4
