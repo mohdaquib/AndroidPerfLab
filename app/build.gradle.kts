@@ -66,6 +66,11 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose.ui)
 
+    // App Startup: single ContentProvider for all SDK initializers (no per-SDK provider).
+    implementation(libs.androidx.startup.runtime)
+    // Coroutines: Dispatchers.IO for background SDK work, Dispatchers.Main for the app scope.
+    implementation(libs.kotlinx.coroutines.android)
+
     // Installs Baseline Profiles at first launch (ART pre-compilation).
     implementation(libs.androidx.profileinstaller)
 

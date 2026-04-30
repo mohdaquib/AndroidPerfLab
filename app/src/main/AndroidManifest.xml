@@ -14,6 +14,35 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidPerfLab">
+
+        <!--
+          App Startup: InitializationProvider consolidates all Initializer components
+          into a single ContentProvider, replacing the pattern where each SDK ships its
+          own provider (which adds ~2–5ms per provider to cold-start time).
+
+          Only CrashReportingInitializer runs here (before Application.onCreate).
+          Non-critical SDKs are NOT listed — they are triggered from Application.onCreate()
+          on background threads via AppInitializer.initializeComponent().
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.aquib.androidperflab.startup.CrashReportingInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.aquib.androidperflab.startup.FeatureFlagsInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.aquib.androidperflab.startup.PerfMonitorInitializer"
+                android:value="androidx.startup" />
+            <meta-data
+                android:name="com.aquib.androidperflab.startup.RemoteConfigInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -21,7 +50,6 @@
             android:theme="@style/Theme.AndroidPerfLab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
