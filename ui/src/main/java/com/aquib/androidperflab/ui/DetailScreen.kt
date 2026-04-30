@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -209,8 +210,8 @@ private fun DetailInteractionBar(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         // BAD: onLike / onBookmark are inline lambdas — new instances each recomposition,
         // preventing Compose from skipping Button recomposition.
-        Button(onClick = onLike) { Text(likeLabel) }
-        OutlinedButton(onClick = onBookmark) { Text(bookmarkLabel) }
+        Button(onClick = onLike, modifier = Modifier.testTag("detail_like_button")) { Text(likeLabel) }
+        OutlinedButton(onClick = onBookmark, modifier = Modifier.testTag("detail_bookmark_button")) { Text(bookmarkLabel) }
     }
 }
 
