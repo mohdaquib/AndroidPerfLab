@@ -50,6 +50,10 @@ fun FeedScreen(
 ) {
     val items = remember { generateFeedItems() }
     LazyColumn(modifier = modifier.fillMaxSize()) {
+        // FIX 1 — stable key: key = { it.id } pins each slot to a specific FeedItem by
+        // identity. Without a key, inserting or removing one item causes every subsequent
+        // row to be destroyed and recreated. With a stable key Compose reuses existing
+        // nodes and only recomposes the slots whose content actually changed.
         items(items = items, key = { it.id }) { item ->
             FeedItemRow(item = item, onClick = { onItemClick(item) })
             HorizontalDivider()
@@ -59,10 +63,13 @@ fun FeedScreen(
 
 @Composable
 private fun FeedItemRow(item: FeedItem, onClick: () -> Unit = {}) {
-    // Intentionally unoptimized: a new SimpleDateFormat is allocated and a new Date is
-    // constructed on every recomposition instead of being computed once with remember {}.
-    val timestamp = SimpleDateFormat("EEE, dd MMM yyyy  HH:mm:ss", Locale.getDefault())
-        .format(Date(item.timestampMillis))
+    // FIX 2 — remembered timestamp: SimpleDateFormat and Date are only allocated when
+    // item.timestampMillis changes. Previously they were allocated on every recomposition,
+    // even though the formatted string never changed between recompose passes.
+    val timestamp = remember(item.timestampMillis) {
+        SimpleDateFormat("EEE, dd MMM yyyy  HH:mm:ss", Locale.getDefault())
+            .format(Date(item.timestampMillis))
+    }
 
     Row(
         modifier = Modifier
@@ -71,14 +78,8 @@ private fun FeedItemRow(item: FeedItem, onClick: () -> Unit = {}) {
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AsyncImage(
-            model = item.imageUrl,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(72.dp)
-                .clip(RoundedCornerShape(8.dp)),
-        )
+        // FIX 3 — stable image wrapper: see FeedItemImage below.
+        FeedItemImage(url = item.imageUrl)
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(text = item.title, style = MaterialTheme.typography.titleSmall)
             Text(text = item.subtitle, style = MaterialTheme.typography.labelMedium)
@@ -91,4 +92,21 @@ private fun FeedItemRow(item: FeedItem, onClick: () -> Unit = {}) {
             Text(text = timestamp, style = MaterialTheme.typography.labelSmall)
         }
     }
+}
+
+// FIX 3 — stable AsyncImage wrapper: String is a stable type, so the Compose compiler
+// marks this function as skippable. When FeedItemRow recomposes for any reason other
+// than a URL change (e.g. a new onClick lambda instance), Compose compares the url
+// argument and skips the entire function body — AsyncImage is never re-entered and
+// no unnecessary image-load checks are issued to the Coil cache.
+@Composable
+private fun FeedItemImage(url: String) {
+    AsyncImage(
+        model = url,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(72.dp)
+            .clip(RoundedCornerShape(8.dp)),
+    )
 }

@@ -6,12 +6,32 @@ import java.io.File
 
 object FakeCrashReportingSdk {
 
-    // Simulates: scanning the cache directory for pending crash dumps left by a previous
-    // session, installing an UncaughtExceptionHandler, and uploading any found dumps
-    // synchronously before the app is considered "ready".
-    fun init(context: Context) {
-        // Simulate: scanning cache dir for pending crash dump files
+    // ── Fast path — called synchronously from CrashReportingInitializer ──────────
+    //
+    // Only registers the UncaughtExceptionHandler. Safe to call from any thread.
+    // Separated from uploadPendingReports() so the handler is installed before any
+    // other SDK work begins — matching the original "must be first" requirement —
+    // without blocking the main thread for the full 120 ms upload simulation.
+
+    fun registerHandler(context: Context) {
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e("FakeCrashReportingSdk", "Uncaught exception on ${thread.name}", throwable)
+            previousHandler?.uncaughtException(thread, throwable)
+        }
+        Log.d("FakeCrashReportingSdk", "registerHandler complete")
+    }
+
+    // ── Slow path — called from Dispatchers.IO via CrashReportingInitializer ─────
+    //
+    // Simulates: scanning the cache directory for pending crash dumps, parsing them,
+    // writing a session sentinel, and uploading reports to the backend. All I/O and
+    // the blocking upload sleep are safe on a background thread.
+
+    fun uploadPendingReports(context: Context) {
         val cacheDir = context.cacheDir
+
+        // Simulate: scanning cache dir for pending crash dump files
         val crashDumps = cacheDir.listFiles { f -> f.name.startsWith("crash_") }
             ?.toList()
             ?: emptyList()
@@ -25,21 +45,17 @@ object FakeCrashReportingSdk {
             }
         }
 
-        // Simulate: writing a session sentinel file so the next launch can detect
-        // whether this session ended cleanly
+        // Simulate: writing a session sentinel so the next launch can detect clean exits
         val sentinel = File(cacheDir, "crash_sentinel_${System.currentTimeMillis()}.tmp")
         sentinel.createNewFile()
 
-        // Simulate: registering the uncaught exception handler (involves thread locking)
-        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e("FakeCrashReportingSdk", "Uncaught exception on ${thread.name}", throwable)
-            previousHandler?.uncaughtException(thread, throwable)
-        }
-
-        // Simulate: blocking upload of any pending crash reports to the backend
+        // Simulate: blocking upload of pending reports to the backend
         Thread.sleep(120L)
 
-        Log.d("FakeCrashReportingSdk", "init complete — found ${crashDumps.size} pending dumps, parsed ${parsedReports.size} reports")
+        Log.d(
+            "FakeCrashReportingSdk",
+            "uploadPendingReports complete — found ${crashDumps.size} dumps, " +
+                "parsed ${parsedReports.size} reports",
+        )
     }
 }

@@ -25,6 +25,7 @@ junit        = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 coroutinesTest  = "1.9.0"
+startupRuntime  = "1.2.0"
 
 # ────────────────────────────────────────────────────────────────
 [libraries]
@@ -63,7 +64,9 @@ coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp"
 junit                = { group = "junit",                  name = "junit",          version.ref = "junit" }
 androidx-junit       = { group = "androidx.test.ext",      name = "junit",          version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
-kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+kotlinx-coroutines-test    = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test",    version.ref = "coroutinesTest" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutinesTest" }
+androidx-startup-runtime   = { group = "androidx.startup",       name = "startup-runtime",            version.ref = "startupRuntime" }
 
 # ────────────────────────────────────────────────────────────────
 [bundles]
