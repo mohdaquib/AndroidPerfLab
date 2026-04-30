@@ -1,7 +1,9 @@
 package com.aquib.androidperflab.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FloatingActionButton
@@ -26,6 +28,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         var selectedItem by remember { mutableStateOf<FeedItem?>(null) }
         var showAnimatedList by remember { mutableStateOf(false) }
+        var showUnoptimizedAnimatedList by remember { mutableStateOf(false) }
 
         when {
             selectedItem != null -> {
@@ -36,18 +39,38 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 BackHandler { showAnimatedList = false }
                 AnimatedListScreen(onBack = { showAnimatedList = false })
             }
+            showUnoptimizedAnimatedList -> {
+                BackHandler { showUnoptimizedAnimatedList = false }
+                UnoptimizedAnimatedListScreen(onBack = { showUnoptimizedAnimatedList = false })
+            }
             else -> {
                 Box(modifier = Modifier.fillMaxSize()) {
                     FeedScreen(onItemClick = { selectedItem = it })
-                    FloatingActionButton(
-                        onClick = { showAnimatedList = true },
+                    Column(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(16.dp)
-                            .testTag("animated_list_fab")
-                            .semantics { contentDescription = "animated_list_fab" },
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.End,
                     ) {
-                        Text("▶")
+                        // Top FAB — navigates to the unoptimized screen (anti-patterns demo).
+                        FloatingActionButton(
+                            onClick = { showUnoptimizedAnimatedList = true },
+                            modifier = Modifier
+                                .testTag("unoptimized_list_fab")
+                                .semantics { contentDescription = "unoptimized_list_fab" },
+                        ) {
+                            Text("⚠")
+                        }
+                        // Bottom FAB — navigates to the optimized screen (best-practices demo).
+                        FloatingActionButton(
+                            onClick = { showAnimatedList = true },
+                            modifier = Modifier
+                                .testTag("animated_list_fab")
+                                .semantics { contentDescription = "animated_list_fab" },
+                        ) {
+                            Text("▶")
+                        }
                     }
                 }
             }

@@ -4,6 +4,7 @@ import glob
 import sys
 
 COLD_START_THRESHOLD_MS = 800
+FRAME_P99_THRESHOLD_MS  = 16.0
 
 def format_value(val):
     if val is None:
@@ -28,7 +29,6 @@ def main():
     print("| Metric | Min | Median | Max | Status |")
     print("| :--- | :---: | :---: | :---: | :---: |")
 
-    # Track metrics to avoid duplicates if multiple files are found
     seen_results = set()
     threshold_exceeded = False
 
@@ -49,13 +49,29 @@ def main():
                     m_median = values.get('median')
                     m_max = values.get('maximum')
 
+                    # Cold-start TTID threshold: applies to any cold benchmark row.
                     is_cold_ttid = (
                         "cold" in benchmark_name.lower() and
                         metric_name == "timeToInitialDisplayMs"
                     )
+
+                    # p99 frame-time threshold: applies only to the optimized scroll test
+                    # so that the intentionally-slow unoptimized test does not fail CI.
+                    is_p99_frame_optimized = (
+                        "optimized" in benchmark_name.lower() and
+                        "p99" in metric_name.lower() and
+                        "frameduration" in metric_name.lower().replace(".", "").replace("_", "")
+                    )
+
                     if is_cold_ttid and m_median is not None:
                         if m_median >= COLD_START_THRESHOLD_MS:
                             status = f"FAIL (>{COLD_START_THRESHOLD_MS}ms)"
+                            threshold_exceeded = True
+                        else:
+                            status = "PASS"
+                    elif is_p99_frame_optimized and m_median is not None:
+                        if m_median >= FRAME_P99_THRESHOLD_MS:
+                            status = f"FAIL (>{FRAME_P99_THRESHOLD_MS}ms)"
                             threshold_exceeded = True
                         else:
                             status = "PASS"
@@ -76,8 +92,10 @@ def main():
 
     if threshold_exceeded:
         print(
-            f"\n> Cold start TTID exceeded the {COLD_START_THRESHOLD_MS} ms threshold "
-            "(see FAIL rows above).",
+            "\n> One or more thresholds exceeded "
+            f"(cold-start TTID > {COLD_START_THRESHOLD_MS}ms or "
+            f"optimized p99 frame time > {FRAME_P99_THRESHOLD_MS}ms). "
+            "See FAIL rows above.",
             file=sys.stderr,
         )
         sys.exit(1)
