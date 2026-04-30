@@ -15,6 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
@@ -40,7 +43,9 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                         onClick = { showAnimatedList = true },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(16.dp),
+                            .padding(16.dp)
+                            .testTag("animated_list_fab")
+                            .semantics { contentDescription = "animated_list_fab" },
                     ) {
                         Text("▶")
                     }

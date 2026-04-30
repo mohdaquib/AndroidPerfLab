@@ -37,6 +37,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.benchmark.junit4)
     implementation(libs.androidx.benchmark.macro.junit4)
     implementation(libs.androidx.test.uiautomator)
     implementation(libs.androidx.junit)

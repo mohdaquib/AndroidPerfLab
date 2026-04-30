@@ -32,6 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 private data class AnimatedItem(
@@ -62,7 +65,12 @@ fun AnimatedListScreen(
         TextButton(onClick = onBack, modifier = Modifier.padding(start = 4.dp, top = 4.dp)) {
             Text("← Back")
         }
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("animated_list")
+                .semantics { contentDescription = "animated_list" }
+        ) {
             // BAD: no key lambda — Compose cannot track item identity across recompositions,
             // so any structural change causes it to diff by position rather than by id.
             items(items) { item ->

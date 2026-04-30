@@ -26,12 +26,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
         // Dedicated build type for running Macrobenchmarks and generating Baseline Profiles.
         // Mirrors release config but keeps the debug signing cert so the benchmark module
         // can install it without a release keystore on CI.
         create("benchmark") {
-            initWith(buildTypes.getByName("release"))
+            initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             isDebuggable = false
@@ -79,4 +80,5 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }
