@@ -71,7 +71,7 @@ jobs:
           arch: x86_64
           emulator-boot-timeout: 900  # Increase from 600 to 900 seconds (15 minutes)
           emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -no-audio
-          script: ./gradlew :benchmarks:connectedBenchmarkAndroidTest
+          script: ./gradlew :benchmarks:connectedBenchmarkBenchmarkAndroidTest
 
       - name: Parse Benchmark Results
         if: always()
