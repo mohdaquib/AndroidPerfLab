@@ -14,6 +14,7 @@ import com.aquib.androidperflab.ui.FeedItem
 import com.aquib.androidperflab.ui.theme.AndroidPerfLabTheme
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -57,7 +58,7 @@ class RecompositionBenchmark {
     // ── Like button ──────────────────────────────────────────────────────────────
 
     @Test
-    fun likeButton_recompositionCount() {
+    fun likeButton_recompositionCount_optimized() {
         val before = totalChangeCount()
 
         composeTestRule.onNodeWithTag("detail_like_button").performClick()
@@ -65,13 +66,18 @@ class RecompositionBenchmark {
         composeTestRule.waitForIdle()
 
         val delta = totalChangeCount() - before
-        record("like_button_click", delta)
+        assertEquals(
+            "Unnecessary recompositions after like-button click must be zero",
+            EXPECTED_RECOMPOSITIONS_PER_BUTTON_CLICK,
+            delta,
+        )
+        record("like_button_click", before, delta)
     }
 
     // ── Bookmark button ──────────────────────────────────────────────────────────
 
     @Test
-    fun bookmarkButton_recompositionCount() {
+    fun bookmarkButton_recompositionCount_optimized() {
         val before = totalChangeCount()
 
         composeTestRule.onNodeWithTag("detail_bookmark_button").performClick()
@@ -79,14 +85,20 @@ class RecompositionBenchmark {
         composeTestRule.waitForIdle()
 
         val delta = totalChangeCount() - before
-        record("bookmark_button_click", delta)
+        assertEquals(
+            "Unnecessary recompositions after bookmark-button click must be zero",
+            EXPECTED_RECOMPOSITIONS_PER_BUTTON_CLICK,
+            delta,
+        )
+        record("bookmark_button_click", before, delta)
     }
 
     // ── Tick-driven recompositions ───────────────────────────────────────────────
 
     @Test
-    fun tickEffect_recompositionCountPerInterval() = runTest(testScheduler) {
+    fun tickEffect_recompositionCountPerInterval_optimized() = runTest(testScheduler) {
         val tickCount = 5
+        val beforeAll = totalChangeCount()
         var totalDelta = 0L
 
         repeat(tickCount) { index ->
@@ -104,7 +116,13 @@ class RecompositionBenchmark {
             Log.d(TAG, "Tick ${index + 1}: $delta recompositions")
         }
 
-        record("tick_effect_per_interval", totalDelta / tickCount)
+        val avgDelta = totalDelta / tickCount
+        assertEquals(
+            "Unnecessary recompositions per tick must be zero",
+            EXPECTED_RECOMPOSITIONS_PER_TICK,
+            avgDelta,
+        )
+        record("tick_effect_per_interval", beforeAll, avgDelta)
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -112,13 +130,20 @@ class RecompositionBenchmark {
     private fun totalChangeCount(): Long =
         Recomposer.runningRecomposers.value.sumOf { it.changeCount }
 
-    private fun record(interaction: String, recompositionCount: Long) {
-        Log.d(TAG, "[$interaction] recompositions per interaction: $recompositionCount")
-        val bundle = Bundle().apply { putLong(interaction, recompositionCount) }
+    private fun record(interaction: String, before: Long, delta: Long) {
+        val after = before + delta
+        Log.d(TAG, "[$interaction] before=$before  after=$after  delta=$delta")
+        val bundle = Bundle().apply {
+            putLong("${interaction}_before", before)
+            putLong("${interaction}_after", after)
+            putLong("${interaction}_delta", delta)
+        }
         InstrumentationRegistry.getInstrumentation().sendStatus(2, bundle)
     }
 
     companion object {
         private const val TAG = "RecompositionBenchmark"
+        private const val EXPECTED_RECOMPOSITIONS_PER_BUTTON_CLICK = 1L
+        private const val EXPECTED_RECOMPOSITIONS_PER_TICK = 1L
     }
 }
