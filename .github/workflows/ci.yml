@@ -66,11 +66,11 @@ jobs:
       - name: Run Macrobenchmarks
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 30
           target: default
           arch: x86_64
           emulator-boot-timeout: 900  # Increase from 600 to 900 seconds (15 minutes)
-          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect
+          emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -no-audio
           script: ./gradlew :benchmarks:connectedBenchmarkAndroidTest
 
       - name: Parse Benchmark Results
