@@ -24,7 +24,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    onShowDashboard: () -> Unit = {},
+) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         var selectedItem by remember { mutableStateOf<FeedItem?>(null) }
         var showAnimatedList by remember { mutableStateOf(false) }
@@ -53,7 +56,16 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.End,
                     ) {
-                        // Top FAB — navigates to the unoptimized screen (anti-patterns demo).
+                        // Benchmark dashboard.
+                        FloatingActionButton(
+                            onClick = onShowDashboard,
+                            modifier = Modifier
+                                .testTag("benchmark_dashboard_fab")
+                                .semantics { contentDescription = "benchmark_dashboard_fab" },
+                        ) {
+                            Text("📊")
+                        }
+                        // Navigates to the unoptimized screen (anti-patterns demo).
                         FloatingActionButton(
                             onClick = { showUnoptimizedAnimatedList = true },
                             modifier = Modifier
@@ -62,7 +74,7 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                         ) {
                             Text("⚠")
                         }
-                        // Bottom FAB — navigates to the optimized screen (best-practices demo).
+                        // Navigates to the optimized screen (best-practices demo).
                         FloatingActionButton(
                             onClick = { showAnimatedList = true },
                             modifier = Modifier
