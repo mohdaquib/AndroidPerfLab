@@ -14,8 +14,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-private const val TARGET_PACKAGE    = "com.aquib.androidperflab"
-private const val RENDER_TIMEOUT_MS = 5_000L
+private const val TARGET_PACKAGE       = "com.aquib.androidperflab"
+private const val RENDER_TIMEOUT_MS    = 5_000L
+private const val COLD_START_MAX_TTID_MS = 800L   // enforced by BenchmarkResultsParser.py
 
 /**
  * Measures app startup time across all three Android startup modes.
@@ -45,15 +46,15 @@ private const val RENDER_TIMEOUT_MS = 5_000L
  */
 @RunWith(AndroidJUnit4::class)
 class StartupBenchmark {
-
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
     /**
      * Cold start — most expensive.
      * Process is killed before every iteration.
-     * Application.onCreate() runs in full, blocking the main thread for ~750 ms
-     * across the five fake SDK initialisations.
+     * Application.onCreate() runs in full; on the optimised build all SDKs run on
+     * Dispatchers.IO so TTID should be well under [COLD_START_MAX_TTID_MS] ms.
+     * Threshold enforced in CI by BenchmarkResultsParser.py.
      */
     @Test
     fun startupCold() = measureStartup(StartupMode.COLD, expectTtfd = true)
@@ -78,7 +79,6 @@ class StartupBenchmark {
     fun startupHot() = measureStartup(StartupMode.HOT, expectTtfd = false)
 
     // ── Core measurement ─────────────────────────────────────────────────────
-
     private fun measureStartup(startupMode: StartupMode, expectTtfd: Boolean) {
         benchmarkRule.measureRepeated(
             packageName = TARGET_PACKAGE,

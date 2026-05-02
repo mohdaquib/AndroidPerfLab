@@ -14,9 +14,22 @@ import org.junit.runner.RunWith
 
 private const val TARGET_PACKAGE    = "com.aquib.androidperflab"
 private const val RENDER_TIMEOUT_MS = 5_000L
+private const val FRAME_P99_MAX_MS  = 16.0   // enforced by BenchmarkResultsParser.py
 
 /**
- * Measures scroll rendering performance on the unoptimized AnimatedListScreen.
+ * Measures scroll rendering performance — before and after Compose optimisations.
+ * Both tests run in a single benchmark session and their results appear side by side
+ * in benchmarkData.json, keyed by test name.
+ *
+ * ┌──────────────────────────────────┬─────────────────────────────────────────────────────┐
+ * │ Test                             │ Compose problems                                    │
+ * ├──────────────────────────────────┼─────────────────────────────────────────────────────┤
+ * │ scrollAnimatedList_unoptimized   │ no key{}, alpha in composition scope, animateContent │
+ * │                                  │ Size(), inline Color per recompose → janky 60-fps    │
+ * ├──────────────────────────────────┼─────────────────────────────────────────────────────┤
+ * │ scrollAnimatedList_optimized     │ stable key, graphicsLayer alpha, layout-phase anim,  │
+ * │                                  │ remembered Color → p99 must be < 16 ms              │
+ * └──────────────────────────────────┴─────────────────────────────────────────────────────┘
  *
  * Metrics reported per iteration (written to benchmarkData.json):
  *   frameDurationCpuMs  — p50 / p90 / p95 / p99 frame durations
@@ -24,11 +37,8 @@ private const val RENDER_TIMEOUT_MS = 5_000L
  *   jankyFrameCount     — number of frames exceeding the 16 ms / 60 fps deadline
  *   jankyFramePercent   — janky frames as a fraction of total frames rendered
  *
- * The AnimatedListScreen is intentionally unoptimized:
- *   - No key{} lambda in LazyColumn.items() → position-based diffing on recomposition
- *   - Alpha state read in composition scope, not inside graphicsLayer → full recompose per frame
- *   - animateContentSize() on every card → expensive layout on every frame
- *   - Inline Color construction per recomposition → allocation pressure
+ * The p99 frame duration threshold ([FRAME_P99_MAX_MS] ms) is enforced for the optimised
+ * test by BenchmarkResultsParser.py, which exits non-zero and fails CI if exceeded.
  *
  * Run:
  *   ./gradlew :benchmarks:connectedBenchmarkAndroidTest \
@@ -46,15 +56,36 @@ class ScrollBenchmark {
     val benchmarkRule = MacrobenchmarkRule()
 
     /**
-     * Cold-starts the app for each of 5 iterations, navigates to AnimatedListScreen
-     * in the un-measured setupBlock, then scrolls the 80-item LazyColumn 5 pages down
-     * and 5 pages up while FrameTimingMetric records every frame.
+     * Measures UnoptimizedAnimatedListScreen — four intentional Compose anti-patterns:
+     *  1. No key{} lambda → position-based node reuse on scroll
+     *  2. Alpha read via `by` in composition scope → full recompose every 16 ms
+     *  3. animateContentSize() combined with per-frame recomposition → extra layout passes
+     *  4. Inline Color() per recompose → sustained allocation pressure
      *
-     * CompilationMode.None() keeps the JVM in JIT-only mode so results reflect the
-     * worst-case unoptimized baseline (no AOT profile warm-up across iterations).
+     * High jankyFrameCount and p99 here confirm the baseline is genuinely slow.
+     * Navigates via the ⚠ FAB (contentDescription = "unoptimized_list_fab").
      */
     @Test
-    fun scrollAnimatedListUnoptimized() {
+    fun scrollAnimatedList_unoptimized() =
+        measureScroll(fabContentDesc = "unoptimized_list_fab", listContentDesc = "unoptimized_animated_list")
+
+    /**
+     * Measures AnimatedListScreen — all four anti-patterns fixed:
+     *  1. key = { it.id } → identity-based node reuse
+     *  2. graphicsLayer { alpha = alphaState.value } → draw-phase alpha, zero recomposition
+     *  3. DeferredTargetAnimation + Modifier.layout → height animation in layout phase only
+     *  4. remember(item.id) { Color(...) } → Color allocated once per item
+     *
+     * Expected p99 < [FRAME_P99_MAX_MS] ms. Navigates via the ▶ FAB
+     * (contentDescription = "animated_list_fab").
+     */
+    @Test
+    fun scrollAnimatedList_optimized() =
+        measureScroll(fabContentDesc = "animated_list_fab", listContentDesc = "animated_list")
+
+    // ── Core measurement ──────────────────────────────────────────────────────
+
+    private fun measureScroll(fabContentDesc: String, listContentDesc: String) {
         benchmarkRule.measureRepeated(
             packageName = TARGET_PACKAGE,
             metrics = listOf(FrameTimingMetric()),
@@ -63,25 +94,29 @@ class ScrollBenchmark {
             iterations = 5,
             setupBlock = {
                 pressHome()
-                startActivityAndWait()
-                
-                // Find FAB by content description
-                val fab = device.wait(Until.findObject(By.desc("animated_list_fab")), RENDER_TIMEOUT_MS)
-                    ?: throw RuntimeException("Could not find the FAB to navigate to Animated List")
-                fab.click()
-                
-                // Wait for the list to be present on screen before starting measurement
-                val listAppeared = device.wait(Until.hasObject(By.desc("animated_list")), RENDER_TIMEOUT_MS)
-                check(listAppeared) { "AnimatedListScreen did not appear within ${RENDER_TIMEOUT_MS}ms" }
             },
             measureBlock = {
-                // Guard against any residual render delay from the heavy 80-item
-                // infinite-animation composition before attempting to find the node.
-                device.wait(Until.hasObject(By.desc("animated_list")), RENDER_TIMEOUT_MS)
+                // startActivityAndWait() is called here (inside measureBlock) so that
+                // navigation to the target screen is repeated for every COLD iteration.
+                // setupBlock runs only once before all iterations; with StartupMode.COLD
+                // the process is killed before each measureBlock, so any navigation done
+                // in setupBlock is lost by iteration 2.
+                startActivityAndWait()
 
-                // Find the list by content description
-                val list = device.findObject(By.desc("animated_list"))
-                    ?: throw RuntimeException("Could not find the animated list scrollable object")
+                val fab = device.wait(
+                    Until.findObject(By.desc(fabContentDesc)),
+                    RENDER_TIMEOUT_MS,
+                ) ?: throw RuntimeException("FAB '$fabContentDesc' not found")
+                fab.click()
+
+                val listAppeared = device.wait(
+                    Until.hasObject(By.desc(listContentDesc)),
+                    RENDER_TIMEOUT_MS,
+                )
+                check(listAppeared) { "'$listContentDesc' did not appear within ${RENDER_TIMEOUT_MS}ms" }
+
+                val list = device.findObject(By.desc(listContentDesc))
+                    ?: throw RuntimeException("List '$listContentDesc' not found")
 
                 repeat(5) { list.scroll(Direction.DOWN, 1.0f) }
                 repeat(5) { list.scroll(Direction.UP, 1.0f) }

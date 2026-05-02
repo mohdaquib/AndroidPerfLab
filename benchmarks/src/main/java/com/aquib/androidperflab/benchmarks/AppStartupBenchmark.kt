@@ -6,8 +6,11 @@ import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -18,16 +21,24 @@ private const val TARGET_PACKAGE    = "com.aquib.androidperflab"
 private const val RENDER_TIMEOUT_MS = 5_000L
 
 /**
- * Before / after comparison for moving SDK initializations off the main thread.
+ * Before / after comparison for moving SDK initialisations off the main thread.
+ * Both states are measured in a single benchmark run and appear side by side in
+ * benchmarkData.json, keyed by test name.
  *
- * ┌─────────────────────┬─────────────────┬──────────────────────────────────────────┐
- * │ State               │ TTID (approx.)  │ Main-thread SDK blocking                 │
- * ├─────────────────────┼─────────────────┼──────────────────────────────────────────┤
- * │ BEFORE (baseline)   │ ~1100–1300 ms   │ ~750 ms (5 SDKs × synchronous sleep)     │
- * │ AFTER  (this build) │ ~150–350 ms     │ < 5 ms (handler registration only)       │
- * └─────────────────────┴─────────────────┴──────────────────────────────────────────┘
+ * ┌──────────────────────────────────  ┬─────────────────┬──────────────────────────────────────────┐
+ * │ Test                               │ TTID (approx.)  │ Main-thread SDK blocking                 │
+ * ├──────────────────────────────────  ┼─────────────────┼──────────────────────────────────────────┤
+ * │ startupCold_sdkAsyncInit_baseline  │ ~1100–1300 ms   │ ~750 ms (5 SDKs × synchronous sleep)     │
+ * │ startupCold_sdkAsyncInit_optimized │ ~150–350 ms     │ < 5 ms (handler registration only)       │
+ * └──────────────────────────────────  ┴─────────────────┴──────────────────────────────────────────┘
  *
- * What changed:
+ * How the baseline state is activated:
+ *   The baseline test writes /data/local/tmp/perflab_slow_startup via adb shell before each
+ *   iteration. AndroidPerfLabApplication.onCreate() detects this file and runs all five SDKs
+ *   synchronously on the main thread instead of dispatching to Dispatchers.IO. The flag file
+ *   is removed by the optimized test's setupBlock and by the @After tearDown().
+ *
+ * What changed between states:
  *  • CrashReportingInitializer (manifest, before Application.onCreate):
  *      – registerHandler()      — < 1 ms, main thread
  *      – uploadPendingReports() — ~120 ms, Dispatchers.IO
@@ -37,18 +48,10 @@ private const val RENDER_TIMEOUT_MS = 5_000L
  *      – deferred 500 ms, then run on Dispatchers.IO (~150 ms + ~200 ms)
  *      – SDK public methods return defaults until coroutines complete
  *
- * Run against the BEFORE baseline:
- *   git stash        # restore original synchronous Application.onCreate
+ * Run:
  *   ./gradlew :benchmarks:connectedBenchmarkAndroidTest \
  *     -Pandroid.testInstrumentationRunnerArguments.class=\
  *     com.aquib.androidperflab.benchmarks.AppStartupBenchmark
- *   git stash pop    # restore async implementation
- *   ./gradlew :benchmarks:connectedBenchmarkAndroidTest \
- *     -Pandroid.testInstrumentationRunnerArguments.class=\
- *     com.aquib.androidperflab.benchmarks.AppStartupBenchmark
- *
- * Compare timeToInitialDisplayMs across both runs.
- * See also: StartupBenchmark.startupCold() for the original three-mode baseline.
  */
 @RunWith(AndroidJUnit4::class)
 class AppStartupBenchmark {
@@ -57,41 +60,62 @@ class AppStartupBenchmark {
     val benchmarkRule = MacrobenchmarkRule()
 
     /**
-     * Cold start — full Application.onCreate() path.
+     * Cold start — BASELINE ("before" state).
+     * The flag file activates synchronous SDK init in Application.onCreate():
+     * all five SDKs block the main thread for a combined ~750 ms.
      *
-     * BEFORE: TTID dominated by ~750 ms of synchronous SDK init on the main thread.
-     * AFTER:  TTID reflects only Compose first-frame work; SDKs run in background.
-     *
-     * Expected improvement: ~600–750 ms reduction in timeToInitialDisplayMs.
+     * Expected TTID: ~1100–1300 ms.
      */
     @Test
-    fun startupCold_sdkAsyncInit() = measure(StartupMode.COLD)
+    fun startupCold_sdkAsyncInit_baseline() = measure(StartupMode.COLD, slowStartupMode = true)
 
     /**
-     * Warm start — Activity recreated, Application.onCreate() skipped.
+     * Cold start — OPTIMISED ("after" state).
+     * All SDKs run on Dispatchers.IO; the main thread is free after <5 ms.
      *
-     * TTID here should be identical before and after the fix — confirming that
-     * async SDK init does not regress non-cold startup paths.
+     * Expected TTID: ~150–350 ms. Must be < 800 ms (enforced by BenchmarkResultsParser.py).
      */
     @Test
-    fun startupWarm_sdkAsyncInit() = measure(StartupMode.WARM)
+    fun startupCold_sdkAsyncInit_optimized() = measure(StartupMode.COLD, slowStartupMode = false)
+
+    /**
+     * Warm start — OPTIMISED.
+     * Activity is recreated but Application.onCreate() is skipped, so TTID should be
+     * identical across baseline and optimised — confirming the async init does not
+     * regress non-cold startup paths.
+     */
+    @Test
+    fun startupWarm_sdkAsyncInit_optimized() = measure(StartupMode.WARM, slowStartupMode = false)
 
     // ── Core measurement ──────────────────────────────────────────────────────
 
-    private fun measure(startupMode: StartupMode) {
+    private fun measure(startupMode: StartupMode, slowStartupMode: Boolean) {
         benchmarkRule.measureRepeated(
             packageName = TARGET_PACKAGE,
             metrics = listOf(StartupTimingMetric()),
             compilationMode = CompilationMode.None(),
             startupMode = startupMode,
             iterations = 10,
-            setupBlock = { pressHome() },
+            setupBlock = {
+                if (slowStartupMode) {
+                    device.executeShellCommand("touch /data/local/tmp/perflab_slow_startup")
+                } else {
+                    device.executeShellCommand("rm -f /data/local/tmp/perflab_slow_startup")
+                }
+                pressHome()
+            },
             measureBlock = {
                 startActivityAndWait()
                 assertTtidCaptured()
                 assertTtfdCaptured()
             },
         )
+    }
+
+    @After
+    fun tearDown() {
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+            .executeShellCommand("rm -f /data/local/tmp/perflab_slow_startup")
     }
 
     // ── Assertion helpers ─────────────────────────────────────────────────────

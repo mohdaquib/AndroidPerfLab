@@ -2,6 +2,8 @@
 <!--
   debuggable must be false for accurate Macrobenchmark results.
   tools:replace merges this value over the default true that AGP injects for test APKs.
+  This file must live in src/main/ — placing it in src/androidTest/ applies it to
+  the (unused) meta-test source set, not to the benchmark APK itself.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">

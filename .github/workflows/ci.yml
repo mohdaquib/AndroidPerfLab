@@ -70,13 +70,31 @@ jobs:
           target: default
           arch: x86_64
           emulator-boot-timeout: 600
-          script: ./gradlew :benchmarks:connectedBenchmarkAndroidTest
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            # Wait for boot to complete
+            adb wait-for-device
+            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done'
+            sleep 5
+
+            # Disable animations
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+
+            # Verify device is responsive
+            adb shell getprop ro.build.version.release
+
+            # Run tests
+            ./gradlew :benchmarks:connectedBenchmarkBenchmarkAndroidTest
 
       - name: Parse Benchmark Results
         if: always()
         run: |
           echo "### Macrobenchmark Results" >> $GITHUB_STEP_SUMMARY
-          python3 benchmarks/BenchmarkResultsParser.py >> $GITHUB_STEP_SUMMARY
+          python3 benchmarks/BenchmarkResultsParser.py | tee -a $GITHUB_STEP_SUMMARY
+          exit ${PIPESTATUS[0]}
 
       - name: Upload benchmark JSON
         if: always()
