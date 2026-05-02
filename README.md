@@ -42,30 +42,30 @@ side-by-side in the same benchmark session, and gates the optimized state on a h
 ```mermaid
 graph TD
     subgraph ":app — Application"
-        APP_APP[AndroidPerfLabApplication\nCoroutineScope + SDK orchestration]
-        APP_MA[MainActivity\nCompose host]
-        APP_INIT[5 Startup Initializers\nCrashReporting · Analytics\nPerfMonitor · FeatureFlags\nRemoteConfig]
-        APP_FAKE[5 Fake SDKs\nSimulated I/O delays]
+        APP_APP["AndroidPerfLabApplication<br/>CoroutineScope + SDK orchestration"]
+        APP_MA["MainActivity<br/>Compose host"]
+        APP_INIT["5 Startup Initializers<br/>CrashReporting · Analytics<br/>PerfMonitor · FeatureFlags<br/>RemoteConfig"]
+        APP_FAKE["5 Fake SDKs<br/>Simulated I/O delays"]
     end
 
     subgraph ":ui — Compose library"
-        UI_HOME[HomeScreen\nNavigation hub]
-        UI_FEED[FeedScreen\n220-item LazyColumn]
-        UI_DETAIL[DetailScreen\n10+ recomposition fixes]
-        UI_ANIM[AnimatedListScreen\nDraw-phase alpha · Layout-phase expand]
-        UI_UNANIM[UnoptimizedAnimatedListScreen\nBaseline with all 4 anti-patterns]
-        UI_ITEM[FeedItem\n@Immutable]
+        UI_HOME["HomeScreen<br/>Navigation hub"]
+        UI_FEED["FeedScreen<br/>220-item LazyColumn"]
+        UI_DETAIL["DetailScreen<br/>10+ recomposition fixes"]
+        UI_ANIM["AnimatedListScreen<br/>Draw-phase alpha · Layout-phase expand"]
+        UI_UNANIM["UnoptimizedAnimatedListScreen<br/>Baseline with all 4 anti-patterns"]
+        UI_ITEM["FeedItem<br/>Immutable"]
     end
 
     subgraph ":data — Data layer"
-        DATA_REPO[Repository&lt;T&gt;\nsuspend getAll / getById]
+        DATA_REPO["Repository&lt;T&gt;<br/>suspend getAll / getById"]
     end
 
     subgraph ":benchmarks — Android test module"
-        BM_STARTUP[StartupBenchmark\nCOLD · WARM · HOT  ×10 iterations]
-        BM_APP[AppStartupBenchmark\nbaseline vs optimized ×10 iterations]
-        BM_SCROLL[ScrollBenchmark\nunoptimized vs optimized ×5 iterations]
-        BM_PROFILE[BaselineProfileGenerator]
+        BM_STARTUP["StartupBenchmark<br/>COLD · WARM · HOT ×10 iterations"]
+        BM_APP["AppStartupBenchmark<br/>baseline vs optimized ×10 iterations"]
+        BM_SCROLL["ScrollBenchmark<br/>unoptimized vs optimized ×5 iterations"]
+        BM_PROFILE["BaselineProfileGenerator"]
     end
 
     APP_APP --> APP_INIT
@@ -77,8 +77,8 @@ graph TD
     UI_HOME --> UI_UNANIM
     UI_FEED --> UI_ITEM
 
-    APP_APP -->|":data"| DATA_REPO
-    APP_APP -->|":ui"| UI_HOME
+    APP_APP -->|"data layer"| DATA_REPO
+    APP_APP -->|"ui layer"| UI_HOME
 
     BM_STARTUP -->|targetProjectPath| APP_APP
     BM_APP     -->|targetProjectPath| APP_APP
