@@ -94,6 +94,13 @@ class ScrollBenchmark {
             iterations = 5,
             setupBlock = {
                 pressHome()
+            },
+            measureBlock = {
+                // startActivityAndWait() is called here (inside measureBlock) so that
+                // navigation to the target screen is repeated for every COLD iteration.
+                // setupBlock runs only once before all iterations; with StartupMode.COLD
+                // the process is killed before each measureBlock, so any navigation done
+                // in setupBlock is lost by iteration 2.
                 startActivityAndWait()
 
                 val fab = device.wait(
@@ -107,9 +114,6 @@ class ScrollBenchmark {
                     RENDER_TIMEOUT_MS,
                 )
                 check(listAppeared) { "'$listContentDesc' did not appear within ${RENDER_TIMEOUT_MS}ms" }
-            },
-            measureBlock = {
-                device.wait(Until.hasObject(By.desc(listContentDesc)), RENDER_TIMEOUT_MS)
 
                 val list = device.findObject(By.desc(listContentDesc))
                     ?: throw RuntimeException("List '$listContentDesc' not found")
