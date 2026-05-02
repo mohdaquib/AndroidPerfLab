@@ -71,18 +71,22 @@ jobs:
           arch: x86_64
           emulator-boot-timeout: 600
           disable-animations: true
-          # -no-window / -no-audio / -no-boot-anim reduce emulator overhead on the
-          # hosted runner; -gpu swiftshader_indirect avoids host-GPU dependency.
-          # Together these keep the event queue idle enough for IsolationActivity
-          # to launch within Macrobenchmark's 45-second window.
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
           script: |
-            # Belt-and-suspenders: disable animations explicitly even though
-            # disable-animations:true already does this — guards against any race
-            # between emulator boot and the adb commands in the action.
+            # Wait for boot to complete
+            adb wait-for-device
+            adb shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done'
+            sleep 5
+
+            # Disable animations
             adb shell settings put global window_animation_scale 0
             adb shell settings put global transition_animation_scale 0
             adb shell settings put global animator_duration_scale 0
+
+            # Verify device is responsive
+            adb shell getprop ro.build.version.release
+
+            # Run tests
             ./gradlew :benchmarks:connectedBenchmarkBenchmarkAndroidTest
 
       - name: Parse Benchmark Results
