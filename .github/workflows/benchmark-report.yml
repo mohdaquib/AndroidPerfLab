@@ -1,0 +1,180 @@
+name: Benchmark Report
+
+# Runs on every push to main (i.e. after a PR is merged).
+# Executes the full benchmark suite, formats results as a before/after
+# Markdown table, and upserts a comment on the merged PR.
+#
+# Separated from ci.yml (which runs on pull_request) so that:
+#   • CI gates block merging on the PR branch.
+#   • This workflow posts the final measured numbers back to the PR
+#     after merge, closing the feedback loop without blocking review.
+
+on:
+  push:
+    branches: [main]
+  # Allow manual re-runs from the Actions tab (useful for debugging
+  # or re-posting a comment after a flaky emulator run).
+  workflow_dispatch:
+
+# Only one benchmark run at a time per branch.
+# cancel-in-progress: if a new push lands while benchmarks are running,
+# cancel the stale run — the new commit's numbers are more relevant.
+concurrency:
+  group: benchmark-report-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # Needed to post / update comments on pull requests and issues.
+  issues: write
+  pull-requests: write
+
+jobs:
+  benchmark-report:
+    name: Run benchmarks → post PR comment
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      # KVM gives the emulator hardware-accelerated virtualisation on the
+      # GitHub-hosted runner. Without this, the emulator is unusably slow.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # continue-on-error: true so that the formatting and comment steps
+      # always run, even when a benchmark test fails or an emulator flake
+      # occurs. The formatter reads BENCHMARK_STATUS and adds a warning
+      # banner to the comment in that case.
+      - name: Run all benchmarks
+        id: benchmarks
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          emulator-boot-timeout: 600
+          disable-animations: true
+          # Headless, no audio, no boot animation, software GPU:
+          # reduces idle overhead so IsolationActivity launches within
+          # Macrobenchmark's 45-second window even on a shared runner.
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          script: |
+            # Belt-and-suspenders: disable animations via adb even though
+            # disable-animations:true already does this — guards against
+            # any race between emulator boot and the action's adb commands.
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            ./gradlew :benchmarks:connectedBenchmarkBenchmarkAndroidTest
+
+      # Write the formatted comment to a temp file so later steps can read
+      # it without re-running the script. `if: always()` ensures this runs
+      # even when the benchmarks step failed (continue-on-error does not
+      # prevent skipping when an earlier step without c-o-e fails).
+      - name: Format benchmark results
+        if: always()
+        env:
+          BENCHMARK_STATUS: ${{ steps.benchmarks.outcome }}
+          GITHUB_SHA:        ${{ github.sha }}
+          GITHUB_RUN_ID:     ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 benchmarks/BenchmarkReportFormatter.py > /tmp/benchmark_comment.md
+
+      # Always append the formatted comment to the workflow's step summary
+      # so the results are visible in the Actions UI even without a PR.
+      - name: Post to step summary
+        if: always()
+        run: cat /tmp/benchmark_comment.md >> $GITHUB_STEP_SUMMARY
+
+      # /repos/{owner}/{repo}/commits/{sha}/pulls returns the PR(s) that
+      # introduced this commit. Works for regular merges and squash-merges.
+      # Outputs an empty string for direct pushes (no associated PR).
+      - name: Find merged PR for this commit
+        if: always()
+        id: find-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          number=$(gh api \
+            "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            -H "Accept: application/vnd.github.groot-preview+json" \
+            --jq '.[0].number // ""')
+          echo "number=$number" >> $GITHUB_OUTPUT
+
+      # Upsert the comment: update the existing benchmark comment (identified
+      # by the <!-- benchmark-report --> marker) rather than creating a new
+      # one on every push. Falls through silently when no PR is found.
+      - name: Upsert PR comment
+        if: always() && steps.find-pr.outputs.number != ''
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.find-pr.outputs.number }}
+        with:
+          script: |
+            const fs = require('fs');
+            const commentPath = '/tmp/benchmark_comment.md';
+
+            if (!fs.existsSync(commentPath)) {
+              core.warning('benchmark_comment.md not found — skipping PR comment');
+              return;
+            }
+
+            const body      = fs.readFileSync(commentPath, 'utf8');
+            const marker    = '<!-- benchmark-report -->';
+            const prNumber  = Number(process.env.PR_NUMBER);
+
+            // Paginate in case the PR has > 100 comments.
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner:        context.repo.owner,
+                repo:         context.repo.repo,
+                issue_number: prNumber,
+              }
+            );
+
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+              core.info(`Updated benchmark comment ${existing.id} on PR #${prNumber}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner:        context.repo.owner,
+                repo:         context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+              core.info(`Created benchmark comment on PR #${prNumber}`);
+            }
+
+      - name: Upload benchmark JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report-results
+          path: >
+            benchmarks/build/outputs/connected_android_test_additional_output
+            /**/*-benchmarkData.json
+          if-no-files-found: warn
