@@ -334,11 +334,6 @@ DetailLiveUpdateBadge(tick = tick)      // recomposed on every tick
 
 ## LayoutInspector screenshot gallery
 
-> Replace the placeholder paths below with screenshots captured in
-> **Android Studio → App Inspection → Layout Inspector** while the app is running.
-> Enable **Recomposition Highlighting** (the colour-coded recompose-count overlay)
-> to visualise exactly which composables recompose on each frame.
-
 ### 1 · Unoptimized scroll — recomposition storm
 
 ![Recomposition storm on UnoptimizedAnimatedListScreen](docs/screenshots/recomposition_unoptimized.png)
