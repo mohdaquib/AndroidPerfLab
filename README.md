@@ -334,11 +334,6 @@ DetailLiveUpdateBadge(tick = tick)      // recomposed on every tick
 
 ## LayoutInspector screenshot gallery
 
-> Replace the placeholder paths below with screenshots captured in
-> **Android Studio → App Inspection → Layout Inspector** while the app is running.
-> Enable **Recomposition Highlighting** (the colour-coded recompose-count overlay)
-> to visualise exactly which composables recompose on each frame.
-
 ### 1 · Unoptimized scroll — recomposition storm
 
 ![Recomposition storm on UnoptimizedAnimatedListScreen](docs/screenshots/recomposition_unoptimized.png)
@@ -367,16 +362,6 @@ tree does not change between frames.*
 is highlighted. `DetailHeroImage`, `DetailAuthorCard`, and the tags row are grey
 (zero recompositions) because their parameters are stable and `derivedStateOf`
 prevents cascading recompositions from `likeCount` changes.*
-
----
-
-### 4 · `graphicsLayer` node in the component tree
-
-![graphicsLayer node shown in Layout Inspector component tree](docs/screenshots/graphicslayer_tree.png)
-
-*The Layout Inspector's component tree shows a `GraphicsLayer` wrapper around each card.
-This is the draw-phase boundary: everything below it can update without causing the
-subtrees above it to recompose.*
 
 ---
 

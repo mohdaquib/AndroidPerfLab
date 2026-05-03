@@ -57,7 +57,6 @@ baselineProfile {
 }
 
 dependencies {
-    implementation(project(":data"))
     implementation(project(":ui"))
 
     implementation(libs.androidx.core.ktx)
