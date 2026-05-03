@@ -24,6 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "AndroidPerfLab"
 include(":app")
-include(":data")
 include(":ui")
 include(":benchmarks")

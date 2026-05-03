@@ -370,16 +370,6 @@ prevents cascading recompositions from `likeCount` changes.*
 
 ---
 
-### 4 · `graphicsLayer` node in the component tree
-
-![graphicsLayer node shown in Layout Inspector component tree](docs/screenshots/graphicslayer_tree.png)
-
-*The Layout Inspector's component tree shows a `GraphicsLayer` wrapper around each card.
-This is the draw-phase boundary: everything below it can update without causing the
-subtrees above it to recompose.*
-
----
-
 ### 5 · System trace — startup before and after
 
 ![System trace comparison: baseline vs optimised startup](docs/screenshots/systrace_startup_comparison.png)
